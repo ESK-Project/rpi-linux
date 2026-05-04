@@ -138,14 +138,6 @@
 		#dma-cells = <1>;
 		brcm,dma-channel-mask = <0x7800>;
 	};
-
-	xhci: xhci@7e9c0000 {
-		compatible = "generic-xhci";
-		status = "disabled";
-		reg = <0x0 0x7e9c0000  0x0 0x100000>;
-		interrupts = <GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>;
-		power-domains = <&power RPI_POWER_DOMAIN_USB>;
-	};
 };
 
 &hevc_dec {
@@ -538,6 +530,17 @@ i2c_vc: &i2c0 {};
 
 &axiperf {
 	compatible = "brcm,bcm2711-axiperf";
+};
+
+&xhci {
+	// Adjust for #size-cells = 2
+	reg = <0x0 0x7e9c0000 0x0 0x100000>;
+
+	// Was "brcm,bcm2711-xhci", "brcm,xhci-brcm-v2";
+	compatible = "generic-xhci";
+
+	// Was <&pm BCM2835_POWER_DOMAIN_USB>;
+	power-domains = <&power RPI_POWER_DOMAIN_USB>;
 };
 
 /delete-node/ &v3d;
