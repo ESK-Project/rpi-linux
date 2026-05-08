@@ -24,6 +24,36 @@ if_enabled_echo() {
 	fi
 }
 
+append_rpi_postinst() {
+	pdir=$1
+	image_path=$2
+	postinst_path="${pdir}/DEBIAN/postinst"
+
+	printf '\nimage="%s"\n' "${image_path}" >> "${postinst_path}"
+
+	cat <<-'ESK_RPI_POSTINST' >> "${postinst_path}"
+
+	["$1" = configure ] || exit 0
+
+	boot_dir="/boot/firmware"
+	config_txt="$boot_dir/config.txt"
+	kernel_name="kernel8-esk-rpi.img"
+
+	install -m 0644 "$image" "$boot_dir/$kernel_name"
+
+	cp -a "$config_txt" "$config_txt.bak.esk-rpi"
+
+	sed -i '/^# BEGIN ESK RPI KERNEL$/,/^# END ESK RPI KERNEL$/d' "$config_txt"
+
+	cat >> "$config_txt" <<EOF
+
+	# BEGIN ESK RPI KERNEL
+	kernel=$kernel_name
+	# END ESK RPI KERNEL
+	EOF
+	ESK_RPI_POSTINST
+}
+
 install_linux_image () {
 	pname=$1
 	pdir=debian/$1
@@ -84,7 +114,14 @@ install_linux_image () {
 		# Tell initramfs builder whether it's wanted
 		export INITRD=$(if_enabled_echo CONFIG_BLK_DEV_INITRD Yes No)
 
-		test -d ${debhookdir}/${script}.d && run-parts --arg="${KERNELRELEASE}" --arg="/${installed_image_path}" ${debhookdir}/${script}.d
+		if [ -d ${debhookdir}/${script}.d ]; then
+			run-parts --arg="${KERNELRELEASE}" --arg="/${installed_image_path}" ${debhookdir}/${script}.d
+		fi
+		EOF
+		if [ "${script}" = postinst ]; then
+			append_rpi_postinst "${pdir}" "/${installed_image_path}"
+		fi
+		cat <<-EOF >> "${pdir}/DEBIAN/${script}"
 		exit 0
 		EOF
 		chmod 755 "${pdir}/DEBIAN/${script}"
