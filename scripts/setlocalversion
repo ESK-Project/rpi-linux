@@ -54,7 +54,6 @@ try_tag() {
 scm_version()
 {
 	local short=false
-	local no_dirty=false
 	local tag
 
 	while [ $# -gt 0 ];
@@ -62,8 +61,6 @@ scm_version()
 		case "$1" in
 		--short)
 			short=true;;
-		--no-dirty)
-			no_dirty=true;;
 		esac
 		shift
 	done
@@ -126,27 +123,6 @@ scm_version()
 		# Add -g and exactly 12 hex chars.
 		printf '%s%.12s' -g "$head"
 	fi
-
-	if ${no_dirty}; then
-		return
-	fi
-
-	# Check for uncommitted changes.
-	# This script must avoid any write attempt to the source tree, which
-	# might be read-only.
-	# You cannot use 'git describe --dirty' because it tries to create
-	# .git/index.lock .
-	# First, with git-status, but --no-optional-locks is only supported in
-	# git >= 2.14, so fall back to git-diff-index if it fails. Note that
-	# git-diff-index does not refresh the index, so it may give misleading
-	# results.
-	# See git-update-index(1), git-diff-index(1), and git-status(1).
-	if {
-		git --no-optional-locks status -uno --porcelain 2>/dev/null ||
-		git diff-index --name-only HEAD
-	} | read dummy; then
-		printf '%s' -dirty
-	fi
 }
 
 collect_files()
@@ -178,7 +154,7 @@ if test ! "$srctree" -ef .; then
 fi
 
 if ${no_local}; then
-	echo "${KERNELVERSION}$(scm_version --no-dirty)"
+	echo "${KERNELVERSION}$(scm_version)"
 	exit 0
 fi
 
@@ -196,9 +172,7 @@ if grep -q "^CONFIG_LOCALVERSION_AUTO=y$" include/config/auto.conf; then
 	scm_version="$(scm_version)"
 elif [ "${LOCALVERSION+set}" != "set" ]; then
 	# If the variable LOCALVERSION is not set, append a plus
-	# sign if the repository is not in a clean annotated or
-	# signed tagged state (as git describe only looks at signed
-	# or annotated tags - git tag -a/-s).
+	# sign if the repository is not at the tagged commit.
 	#
 	# If the variable LOCALVERSION is set (including being set
 	# to an empty string), we don't want to append a plus sign.
